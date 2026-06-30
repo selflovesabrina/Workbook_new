@@ -1,0 +1,35 @@
+{
+  "name": "FitPunkte - Abnehm-Tracker",
+  "short_name": "FitPunkte",
+  "description": "Persönlicher Abnehm-Tracker mit Punkte-System, Barcode-Scanner und KI-Foto-Erkennung",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2D6A4F",
+  "orientation": "portrait",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "fitness", "food"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Essen hinzufügen",
+      "short_name": "Essen",
+      "url": "./index.html#add",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
