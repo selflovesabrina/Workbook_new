@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FitPunkte">
+  <meta name="theme-color" content="#2D6A4F">
+  <title>FitPunkte – Abnehm-Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+/* ── Variables ─────────────────────────────────────────── */
+:root {
+  --green-dark: #2D6A4F;
+  --green-med:  #52B788;
+  --green-light:#D8F3DC;
+  --green-zero: #B7E4C7;
+  --orange:     #E9820B;
+  --red:        #D90429;
+  --blue-light: #D4E9FF;
+  --bg:         #F0F7F2;
+  --card:       #FFFFFF;
+  --text:       #1A1A1A;
+  --text-muted: #666666;
+  --border:     #DEE8E2;
+  --nav-h:      68px;
+  --hdr-h:      56px;
+  --radius:     16px;
+}
+/* ── Reset ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  max-width: 480px;
+  margin: 0 auto;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+/* ── Layout ─────────────────────────────────────────────── */
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+#header {
+  background: var(--green-dark);
+  color: #fff;
+  padding: 0 16px;
+  height: var(--hdr-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+#header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+#header-date { font-size: 12px; opacity: 0.85; }
+
+#main {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.screen {
+  display: none;
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(var(--nav-h) + 16px);
+}
+.screen.active { display: block; }
+
+#bottom-nav {
+  height: var(--nav-h);
+  background: #fff;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+}
+.nav-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  transition: color 0.15s;
+}
+.nav-btn.active { color: var(--green-dark); }
+.nav-btn.active .nav-icon { transform: scale(1.15); }
+.nav-icon { font-size: 22px; display: block; transition: transform 0.15s; }
+.nav-label { font-size: 10px; font-weight: 500; }
+
+/* ── Cards & sections ───────────────────────────────────── */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 12px 12px 0;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+}
+.section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 16px 16px 6px;
+}
+
+/* ── Points card ────────────────────────────────────────── */
+.points-card {
+  background: linear-gradient(135deg, var(--green-dark) 0%, #40916C 100%);
+  color: #fff;
+  text-align: center;
+  padding: 20px 16px;
+}
+.points-circle {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+#points-used {
+  font-size: 52px;
+  font-weight: 800;
+  line-height: 1;
+}
+.pts-sep {
+  font-size: 22px;
+  opacity: 0.7;
+}
+#daily-budget-disp {
+  font-size: 28px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.pts-label-row {
+  font-size: 13px;
+  opacity: 0.85;
+  margin-bottom: 14px;
+}
+.progress-track {
+  background: rgba(255,255,255,0.25);
+  border-radius: 99px;
+  height: 10px;
+  overflow: hidden;
+  margin: 0 4px 10px;
+}
+#progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: #fff;
+  width: 0%;
+  transition: width 0.5s ease;
+}
+#points-remaining {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+/* ── Meal log ───────────────────────────────────────────── */
+.meal-section { margin: 12px 12px 0; }
+.meal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.meal-title { font-size: 13px; font-weight: 600; color: var(--green-dark); }
+.meal-pts   { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+
+.log-entry {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+.log-entry-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.log-emoji { font-size: 26px; flex-shrink: 0; }
+.log-name  { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-meta  { font-size: 11px; color: var(--text-muted); }
+.log-entry-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.del-btn { background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px; opacity: 0.5; }
+.del-btn:hover { opacity: 1; }
+
+/* ── Badges ─────────────────────────────────────────────── */
+.badge { font-size: 11px; font-weight: 700; border-radius: 99px; padding: 3px 8px; }
+.badge-zero { background: var(--green-light); color: var(--green-dark); }
+.badge-pts  { background: #FFF3B0; color: #6D4C00; }
+
+/* ── FAB ────────────────────────────────────────────────── */
+.fab {
+  position: fixed;
+  bottom: calc(var(--nav-h) + 16px);
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--green-dark);
+  color: #fff;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(45,106,79,0.45);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s;
+}
+.fab:active { transform: scale(0.92); }
+
+/* ── Empty state ─────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+/* ── Add food screen ─────────────────────────────────────── */
+.search-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
+}
+#food-search {
+  flex: 1;
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  font-size: 15px;
+  background: var(--card);
+  outline: none;
+  transition: border-color 0.2s;
+}
+#food-search:focus { border-color: var(--green-med); }
+.icon-btn {
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 12px;
+  background: var(--card);
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.icon-btn:active { transform: scale(0.92); }
+
+/* ── Food card ───────────────────────────────────────────── */
+.food-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--card);
+  border-radius: 12px;
+  margin: 0 12px 6px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  transition: transform 0.1s;
+}
+.food-card:active { transform: scale(0.98); }
+.food-emoji { font-size: 28px; flex-shrink: 0; }
+.food-info  { flex: 1; min-width: 0; }
+.food-name  { font-size: 14px; font-weight: 500; }
+.food-meta  { font-size: 11px; color: var(--text-muted); }
+.no-results { text-align: center; padding: 24px; color: var(--text-muted); font-size: 14px; }
+
+/* ── Barcode/photo result ────────────────────────────────── */
+.barcode-result-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.product-image {
+  width: 80px; height: 80px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.photo-preview-img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+.product-preview { display: flex; align-items: flex-start; gap: 12px; }
+.product-emoji   { font-size: 36px; }
+.product-name    { font-size: 16px; font-weight: 600; }
+.product-brand   { font-size: 12px; color: var(--text-muted); }
+.product-meta    { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.product-pts-badge {
+  display: inline-block;
+  border-radius: 99px;
+  padding: 4px 12px;
+  font-size: 13px;
+  margin-top: 6px;
+}
+.product-pts-badge.zero { background: var(--green-light); color: var(--green-dark); }
+.product-pts-badge.low  { background: #FFF3B0; color: #6D4C00; }
+.product-pts-badge.mid  { background: #FFE8CC; color: #8B3000; }
+.product-pts-badge.high { background: #FFCCD5; color: #8B0000; }
+
+.api-key-notice {
+  text-align: center;
+  padding: 24px 20px;
+  background: var(--blue-light);
+  border-radius: 12px;
+  margin: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.photo-loading {
+  text-align: center;
+  padding: 32px;
+}
+.spinner {
+  width: 40px; height: 40px;
+  border: 4px solid var(--border);
+  border-top-color: var(--green-med);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Exercise screen ─────────────────────────────────────── */
+.step-display {
+  text-align: center;
+  margin: 12px 0;
+}
+#steps-count {
+  font-size: 44px;
+  font-weight: 800;
+  color: var(--green-dark);
+}
+.steps-goal { font-size: 13px; color: var(--text-muted); display: block; }
+.steps-progress-track {
+  background: var(--border);
+  border-radius: 99px;
+  height: 8px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+#steps-progress {
+  height: 100%;
+  background: var(--green-med);
+  border-radius: 99px;
+  width: 0;
+  transition: width 0.4s;
+}
+.steps-kcal { font-size: 12px; color: var(--text-muted); text-align: center; margin-bottom: 8px; }
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--green-dark);
+  margin: 8px 0;
+}
+
+.activity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 16px;
+}
+.activity-item {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.activity-item:active { background: var(--green-light); border-color: var(--green-med); transform: scale(0.96); }
+.activity-emoji { font-size: 28px; }
+.activity-name  { font-size: 11px; font-weight: 600; margin-top: 4px; line-height: 1.2; }
+.activity-kcal  { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+.ex-total {
+  background: var(--green-light);
+  color: var(--green-dark);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 0 12px 8px;
+  text-align: center;
+}
+
+/* ── Verlauf / History ───────────────────────────────────── */
+.weight-summary {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.weight-stat {
+  flex: 1;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+.stat-val { font-size: 18px; font-weight: 700; }
+.stat-val.green  { color: var(--green-dark); }
+.stat-val.orange { color: var(--orange); }
+.stat-lbl { font-size: 10px; color: var(--text-muted); }
+.weight-entry {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.weight-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.weight-input-row input {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;
+  outline: none;
+}
+.weight-input-row input:focus { border-color: var(--green-med); }
+
+/* ── Weekly chart ────────────────────────────────────────── */
+.week-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  height: 100px;
+  margin-bottom: 8px;
+}
+.week-day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+}
+.bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  background: var(--bg);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.bar-fill {
+  width: 100%;
+  background: var(--green-med);
+  border-radius: 6px;
+  transition: height 0.5s ease;
+  min-height: 2px;
+}
+.bar-fill.over { background: var(--red); }
+.bar-pts { font-size: 10px; font-weight: 600; color: var(--text); }
+.bar-day { font-size: 10px; color: var(--text-muted); }
+.week-day.today .bar-day { color: var(--green-dark); font-weight: 700; }
+.week-day.today .bar-fill { background: var(--green-dark); }
+.budget-line-label { font-size: 11px; color: var(--text-muted); text-align: right; }
+
+/* ── Settings ────────────────────────────────────────────── */
+.settings-group { margin-bottom: 16px; }
+.settings-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; }
+.settings-group input, .settings-group select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 15px;
+  background: var(--bg);
+  outline: none;
+}
+.settings-group input:focus { border-color: var(--green-med); }
+.settings-goal-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn-primary {
+  width: 100%;
+  background: var(--green-dark);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-primary:active { opacity: 0.85; }
+.btn-secondary {
+  width: 100%;
+  background: none;
+  color: var(--green-dark);
+  border: 2px solid var(--green-med);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ── Modals ─────────────────────────────────────────────── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
+  align-items: flex-end;
+}
+.modal-overlay.open { display: flex; }
+.modal-sheet {
+  background: #fff;
+  border-radius: var(--radius) var(--radius) 0 0;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 0 0 32px;
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: #fff;
+}
+.modal-header h2 { font-size: 17px; font-weight: 700; }
+.close-btn {
+  background: var(--bg);
+  border: none;
+  border-radius: 50%;
+  width: 32px; height: 32px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-body { padding: 16px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; }
+.form-group select, .form-group input[type="number"] {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;
+  background: var(--bg);
+  outline: none;
+}
+.form-group select:focus, .form-group input:focus { border-color: var(--green-med); }
+.calc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--green-light);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 8px;
+}
+.calc-pts { font-size: 22px; font-weight: 800; color: var(--green-dark); }
+.calc-kcal-text { font-size: 12px; color: var(--text-muted); }
+
+/* ── Barcode scanner modal ───────────────────────────────── */
+#barcode-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 300;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+#barcode-modal-overlay.open { display: flex; }
+#reader { width: 100%; max-width: 380px; }
+#reader video { border-radius: 12px; }
+.scan-hint {
+  color: #fff;
+  font-size: 14px;
+  margin-top: 16px;
+  text-align: center;
+  opacity: 0.85;
+}
+#barcode-status { color: #fff; font-size: 13px; margin-top: 8px; }
+.scan-close {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  border-radius: 99px;
+  padding: 10px 28px;
+  font-size: 15px;
+  cursor: pointer;
+  margin-top: 20px;
+}
+
+/* ── Toast ───────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: calc(var(--nav-h) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1A1A1A;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 99px;
+  font-size: 13px;
+  white-space: nowrap;
+  z-index: 999;
+  transition: opacity 0.3s;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+#toast.hidden { opacity: 0; pointer-events: none; }
+
+/* ── Quick action strip ─────────────────────────────────── */
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 12px 0;
+}
+.quick-btn {
+  flex: 1;
+  background: var(--card);
+  border: none;
+  border-radius: 12px;
+  padding: 12px 8px;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green-dark);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.quick-btn-icon { font-size: 22px; }
+.quick-btn:active { background: var(--green-light); }
+
+/* ── Install prompt ─────────────────────────────────────── */
+#install-banner {
+  background: var(--green-dark);
+  color: #fff;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  gap: 8px;
+}
+#install-banner button {
+  background: #fff;
+  color: var(--green-dark);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#install-banner.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- Install banner (hidden until PWA installable) -->
+  <div id="install-banner" class="hidden">
+    <span>📲 App auf Homescreen installieren</span>
+    <button id="install-btn">Installieren</button>
+    <button onclick="document.getElementById('install-banner').classList.add('hidden')" style="background:transparent;color:#fff;border:none;font-size:18px;cursor:pointer;">✕</button>
+  </div>
+
+  <!-- Header -->
+  <header id="header">
+    <h1>🥗 FitPunkte</h1>
+    <span id="header-date"></span>
+  </header>
+
+  <main id="main">
+
+    <!-- ── Screen: Heute ──────────────────────────────── -->
+    <section id="screen-heute" class="screen active">
+
+      <div class="card points-card">
+        <div class="points-circle">
+          <span id="points-used">0</span>
+          <span class="pts-sep">/</span>
+          <span id="daily-budget-disp">21</span>
+        </div>
+        <div class="pts-label-row">Punkte heute</div>
+        <div class="progress-track">
+          <div id="progress-fill"></div>
+        </div>
+        <div id="points-remaining">21 Punkte übrig</div>
+      </div>
+
+      <div class="quick-actions">
+        <button class="quick-btn" onclick="showScreen('add-food')">
+          <span class="quick-btn-icon">➕</span>
+          Essen
+        </button>
+        <button class="quick-btn" onclick="openBarcodeScanner()">
+          <span class="quick-btn-icon">📊</span>
+          Barcode
+        </button>
+        <button class="quick-btn" onclick="triggerPhotoFromHome()">
+          <span class="quick-btn-icon">📷</span>
+          Foto
+        </button>
+        <button class="quick-btn" onclick="showScreen('bewegung')">
+          <span class="quick-btn-icon">🏃</span>
+          Bewegung
+        </button>
+      </div>
+
+      <div id="meal-log"></div>
+      <div style="height:80px"></div>
+    </section>
+
+    <!-- ── Screen: Essen hinzufügen ───────────────────── -->
+    <section id="screen-add-food" class="screen">
+      <div class="search-row">
+        <input type="text" id="food-search" placeholder="🔍  Lebensmittel suchen..."
+               oninput="searchFood(this.value)" autocomplete="off" autocorrect="off">
+        <button class="icon-btn" onclick="openBarcodeScanner()" title="Barcode scannen">📊</button>
+        <button class="icon-btn" onclick="openCamera()" title="Foto machen">📷</button>
+      </div>
+
+      <!-- Hidden file input for photo -->
+      <input type="file" id="photo-input" accept="image/*" capture="environment"
+             style="display:none" onchange="handlePhotoUpload(this)">
+
+      <div id="photo-result" class="hidden"></div>
+      <div id="barcode-result" class="hidden"></div>
+      <div id="search-results"></div>
+      <div id="suggestions"></div>
+      <div style="height:20px"></div>
+    </section>
+
+    <!-- ── Screen: Bewegung ──────────────────────────── -->
+    <section id="screen-bewegung" class="screen">
+
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">🚶 Schritte heute</h3>
+        <div class="step-display">
+          <span id="steps-count">0</span>
+          <span class="steps-goal">/ 10.000 Schritte</span>
+        </div>
+        <div class="steps-progress-track">
+          <div id="steps-progress"></div>
+        </div>
+        <div class="steps-kcal">🔥 ca. <span id="steps-kcal">0</span> kcal verbrannt</div>
+        <input type="range" id="steps-slider" min="0" max="25000" step="100"
+               value="0" oninput="updateSteps(this.value)">
+        <button class="btn-secondary" onclick="setStepsManual()" style="margin-top:8px">Zahl direkt eingeben</button>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">💪 Aktivität hinzufügen</h3>
+        <button class="btn-primary" onclick="addActivity()">+ Sport / Aktivität erfassen</button>
+      </div>
+
+      <div id="exercise-log-list" style="margin-top:8px"></div>
+      <div style="height:20px"></div>
+    </section>
+
+    <!-- ── Screen: Verlauf ─────────────────────────────── -->
+    <section id="screen-verlauf" class="screen">
+
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">⚖️ Gewicht eintragen</h3>
+        <div class="weight-input-row">
+          <input type="number" id="weight-input" placeholder="z.B. 85.2" step="0.1" min="30" max="300">
+          <button class="btn-primary" onclick="saveWeight()" style="width:auto;padding:12px 20px">Speichern</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">📈 Gewichtsverlauf</h3>
+        <div id="weight-history"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:10px">📅 Punkte diese Woche</h3>
+        <div id="weekly-chart"></div>
+      </div>
+
+      <div style="height:20px"></div>
+    </section>
+
+    <!-- ── Screen: Einstellungen ─────────────────────── -->
+    <section id="screen-settings" class="screen">
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:16px">⚙️ Einstellungen</h3>
+
+        <div class="settings-group">
+          <label>Tagesbudget (Punkte)</label>
+          <input type="number" id="s-budget" value="21" min="10" max="60">
+        </div>
+
+        <div class="settings-group">
+          <label>📷 Claude API Key (für Foto-Erkennung)</label>
+          <input type="text" id="s-api-key" placeholder="sk-ant-api03-..." autocomplete="off">
+          <p style="font-size:11px;color:var(--text-muted);margin-top:4px">
+            Kostenlos registrieren: console.anthropic.com · Wird nur lokal auf deinem Gerät gespeichert
+          </p>
+        </div>
+
+        <button class="btn-primary" onclick="saveSettings()">✅ Einstellungen speichern</button>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:16px">🎯 Mein Ziel</h3>
+
+        <div class="settings-goal-row">
+          <div class="settings-group">
+            <label>Startgewicht (kg)</label>
+            <input type="number" id="s-start-weight" value="85.5" step="0.1">
+          </div>
+          <div class="settings-group">
+            <label>Zielgewicht (kg)</label>
+            <input type="number" id="s-goal-weight" value="81.5" step="0.1">
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <label>Zieldatum</label>
+          <input type="date" id="s-goal-date" value="2026-09-01">
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px;background:#FFF3B0">
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:8px">💡 Punkte-System erklärt</h3>
+        <p style="font-size:13px;line-height:1.6;color:#6D4C00">
+          <strong>Formel:</strong> (Kalorien÷50) + (Zucker÷5) + (ges. Fett÷4) − (Protein÷7)<br>
+          Hohe Protein = weniger Punkte ✅<br>
+          Viel Zucker oder gesättigte Fette = mehr Punkte ❌<br>
+          Null-Punkte-Lebensmittel kannst du unbegrenzt essen!
+        </p>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <button class="btn-secondary" onclick="clearTodayLog()" style="color:var(--red);border-color:var(--red)">
+          🗑 Heutiges Protokoll löschen
+        </button>
+      </div>
+
+      <div style="height:20px"></div>
+    </section>
+
+  </main>
+
+  <!-- ── Bottom navigation ─────────────────────────────── -->
+  <nav id="bottom-nav">
+    <button class="nav-btn active" onclick="showScreen('heute')" data-tab="heute">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Heute</span>
+    </button>
+    <button class="nav-btn" onclick="showScreen('add-food')" data-tab="add-food">
+      <span class="nav-icon">➕</span>
+      <span class="nav-label">Essen</span>
+    </button>
+    <button class="nav-btn" onclick="showScreen('bewegung')" data-tab="bewegung">
+      <span class="nav-icon">🏃</span>
+      <span class="nav-label">Bewegung</span>
+    </button>
+    <button class="nav-btn" onclick="showScreen('verlauf')" data-tab="verlauf">
+      <span class="nav-icon">📈</span>
+      <span class="nav-label">Verlauf</span>
+    </button>
+    <button class="nav-btn" onclick="showScreen('settings')" data-tab="settings">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Einst.</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ── Modal: Add food form ───────────────────────────────── -->
+<div class="modal-overlay" id="add-form-modal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <h2 id="add-form-title">Lebensmittel hinzufügen</h2>
+      <button class="close-btn" onclick="closeAddForm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="add-form-product-info"></div>
+      <div class="form-group" style="margin-top:14px">
+        <label>Mahlzeit</label>
+        <select id="meal-select">
+          <option value="fruehstueck">🌅 Frühstück</option>
+          <option value="snack1">☕ Snack (Vormittag)</option>
+          <option value="mittagessen" selected>🍽 Mittagessen</option>
+          <option value="snack2">🍎 Snack (Nachmittag)</option>
+          <option value="abendessen">🌙 Abendessen</option>
+          <option value="snack3">🌃 Abend-Snack</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Menge in Gramm (g)</label>
+        <input type="number" id="amount-input" value="100" min="1" max="5000"
+               oninput="updateCalcPoints()">
+      </div>
+      <div class="calc-row">
+        <div>
+          <div style="font-size:12px;color:var(--green-dark);font-weight:600">PUNKTE</div>
+          <div class="calc-pts" id="calculated-points">0</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--text-muted)">Kalorien</div>
+          <div class="calc-kcal-text" id="calc-kcal">0 kcal</div>
+        </div>
+      </div>
+      <button class="btn-primary" style="margin-top:16px" onclick="confirmAddFood()">
+        ➕ Hinzufügen
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Barcode scanner ─────────────────────────────── -->
+<div id="barcode-modal-overlay">
+  <div id="reader"></div>
+  <p class="scan-hint">Kamera auf den Barcode richten</p>
+  <p id="barcode-status"></p>
+  <button class="scan-close" onclick="closeBarcodeScanner()">✕ Abbrechen</button>
+</div>
+
+<!-- ── Modal: Activity picker ────────────────────────────── -->
+<div class="modal-overlay" id="activity-picker-modal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <h2>Aktivität wählen</h2>
+      <button class="close-btn" onclick="closeActivityPicker()">✕</button>
+    </div>
+    <div id="activity-grid"></div>
+  </div>
+</div>
+
+<!-- ── Toast ─────────────────────────────────────────────── -->
+<div id="toast" class="hidden"></div>
+
+<!-- ── Scripts ──────────────────────────────────────────── -->
+<script src="js/foods.js"></script>
+<script src="js/app.js"></script>
+<script>
+// PWA install prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-banner').classList.remove('hidden');
+});
+document.getElementById('install-btn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('install-banner').classList.add('hidden');
+});
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) {
+      overlay.classList.remove('open');
+      if (overlay.id === 'add-form-modal') closeAddForm();
+      if (overlay.id === 'activity-picker-modal') closeActivityPicker();
+    }
+  });
+});
+
+// Override openAddForm/closeAddForm to use open class
+const _origOpenAddForm = openAddForm;
+window.openAddForm = function(foodId, suggestedGrams, presetData) {
+  _origOpenAddForm(foodId, suggestedGrams, presetData);
+  document.getElementById('add-form-modal').classList.add('open');
+};
+window.closeAddForm = function() {
+  document.getElementById('add-form-modal').classList.remove('open');
+  pendingFood = null;
+};
+
+// Override addActivity to use open class
+window.addActivity = function() {
+  document.getElementById('activity-picker-modal').classList.add('open');
+};
+window.closeActivityPicker = function() {
+  document.getElementById('activity-picker-modal').classList.remove('open');
+};
+
+// Override openBarcodeScanner
+window.openBarcodeScanner = function() {
+  document.getElementById('barcode-modal-overlay').classList.add('open');
+  document.getElementById('barcode-status').textContent = 'Kamera wird gestartet...';
+  document.getElementById('reader').innerHTML = '';
+  setTimeout(() => {
+    try {
+      scanner = new Html5QrcodeScanner('reader', {
+        fps: 10,
+        qrbox: { width: 260, height: 140 },
+        rememberLastUsedCamera: true,
+        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+      }, false);
+      scanner.render(async (barcode) => {
+        closeBarcodeScanner();
+        await fetchAndShowBarcode(barcode);
+      }, () => {});
+      document.getElementById('barcode-status').textContent = '';
+    } catch (e) {
+      document.getElementById('barcode-status').textContent = 'Kamerazugriff nicht möglich';
+    }
+  }, 300);
+};
+
+window.closeBarcodeScanner = function() {
+  if (scanner) { try { scanner.clear(); } catch {} scanner = null; }
+  document.getElementById('barcode-modal-overlay').classList.remove('open');
+};
+
+function triggerPhotoFromHome() {
+  showScreen('add-food');
+  setTimeout(() => openCamera(), 200);
+}
+</script>
+</body>
+</html>
